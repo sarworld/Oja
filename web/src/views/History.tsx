@@ -48,13 +48,14 @@ export function History() {
 
   const data = rows.map((d) => ({ ...d, label: shortDay(d.day) }));
 
-  // Clean Y axis: round up to a "nice" ceiling that fits both the bars and the
-  // goal line, with evenly spaced ticks. Letting recharts auto-generate integer
-  // ticks here produced a non-monotonic scale, because the goal line sits well
-  // above the logged values.
-  const yMax = Math.max(goal, ...data.map((d) => d.kcal), 1);
-  const niceMax = Math.max(500, Math.ceil(yMax / 500) * 500);
-  const yTicks = [0, niceMax / 4, niceMax / 2, (niceMax * 3) / 4, niceMax];
+  // Clean Y axis with round, evenly spaced gridlines so the goal line always
+  // lands on one, with headroom above the tallest bar. (Recharts' auto integer
+  // ticks produced a non-monotonic scale because the goal line sits well above
+  // the logged values.)
+  const peak = Math.max(goal, ...data.map((d) => d.kcal), 1);
+  const step = peak < 2400 ? 500 : 1000;
+  const niceMax = (Math.floor(peak / step) + 1) * step; // next round boundary above the peak
+  const yTicks = Array.from({ length: niceMax / step + 1 }, (_, i) => i * step);
 
   return (
     <div className="space-y-4">
@@ -95,9 +96,10 @@ export function History() {
                 tick={{ fill: "#a99a85", fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
-                width={44}
+                width={56}
                 domain={[0, niceMax]}
                 ticks={yTicks}
+                allowDataOverflow
               />
               <Tooltip
                 cursor={{ fill: "#ffffff08" }}
