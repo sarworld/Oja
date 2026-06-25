@@ -10,6 +10,9 @@ already run.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/docker-compose-2496ED?logo=docker&logoColor=white)](docker-compose.yml)
+[![Docs](https://img.shields.io/badge/docs-docs.ojatracker.com-e58a3c?logo=readthedocs&logoColor=white)](https://docs.ojatracker.com)
+
+📖 **Full documentation → [docs.ojatracker.com](https://docs.ojatracker.com)**
 
 ---
 
