@@ -246,6 +246,8 @@ Oja proxies images through the server using this key, so the key is **never expo
 
 ## Development
 
+> AI assistance was used during development of this project. Code, design, and release decisions remain reviewed and maintained by the project author.
+
 Oja is a TypeScript monorepo: an Express/Node backend in `server/` and a React + Vite frontend in `web/`.
 Requires **Node 20+**.
 
