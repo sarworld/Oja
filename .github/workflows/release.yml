@@ -1,0 +1,106 @@
+name: Release
+
+# Cut a release by pushing a SemVer tag, e.g.:
+#   git tag v0.1.0 && git push --tags
+# This verifies the tag matches the source version, runs the test suite, builds
+# a multi-arch image (amd64 + arm64) to GHCR, and publishes a GitHub Release.
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write # create the GitHub Release
+  packages: write # push the image to GHCR
+
+jobs:
+  release:
+    name: Build, publish & release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version from tag
+        id: v
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify tag matches source version
+        run: |
+          want="${{ steps.v.outputs.version }}"
+          pkg=$(node -p "require('./server/package.json').version")
+          web=$(node -p "require('./web/package.json').version")
+          src=$(grep -oE "[0-9]+\.[0-9]+\.[0-9]+" server/src/version.ts | head -1)
+          echo "tag=$want  server=$pkg  web=$web  version.ts=$src"
+          for got in "$pkg" "$web" "$src"; do
+            if [ "$got" != "$want" ]; then
+              echo "::error::Tag v$want does not match source version. Bump server/package.json, web/package.json and server/src/version.ts (see RELEASING.md)."
+              exit 1
+            fi
+          done
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Verify (typecheck, build, test)
+        run: |
+          for d in server web; do
+            ( cd "$d" && npm ci && npm run typecheck && npm run build && npm test )
+          done
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/oja
+          # latest=auto (default): :latest is only applied to non-prerelease tags,
+          # so an -rc tag never becomes latest.
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build & push multi-arch image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Extract release notes from changelog
+        run: |
+          awk -v ver="${{ steps.v.outputs.version }}" '
+            $0 ~ ("^## \\[" ver "\\]") { f=1; next }
+            /^## \[/ { f=0 }
+            f { print }
+          ' CHANGELOG.md > NOTES.md
+          {
+            echo ""
+            echo "### Docker"
+            echo '```bash'
+            echo "docker pull ghcr.io/${{ github.repository_owner }}/oja:${{ steps.v.outputs.version }}"
+            echo '```'
+          } >> NOTES.md
+          if ! grep -q '[^[:space:]]' NOTES.md; then echo "Oja ${{ steps.v.outputs.version }}" > NOTES.md; fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          name: Oja ${{ github.ref_name }}
+          body_path: NOTES.md
+          prerelease: ${{ contains(github.ref_name, '-') }}

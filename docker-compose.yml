@@ -1,0 +1,16 @@
+services:
+  oja:
+    build: .
+    image: oja
+    container_name: oja
+    env_file: .env
+    ports:
+      - "${PORT:-8462}:${PORT:-8462}"
+    volumes:
+      # Named volume so the non-root container user (uid 1000) can write the DB.
+      # To use a host path instead, bind-mount it and `chown 1000:1000` the dir.
+      - oja-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  oja-data:

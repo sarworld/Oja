@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+data
+.git
+.gitignore
+.env
+*.log
+.DS_Store
+**/coverage
+**/.vite
+docs/screenshots
