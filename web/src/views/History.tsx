@@ -48,6 +48,14 @@ export function History() {
 
   const data = rows.map((d) => ({ ...d, label: shortDay(d.day) }));
 
+  // Clean Y axis: round up to a "nice" ceiling that fits both the bars and the
+  // goal line, with evenly spaced ticks. Letting recharts auto-generate integer
+  // ticks here produced a non-monotonic scale, because the goal line sits well
+  // above the logged values.
+  const yMax = Math.max(goal, ...data.map((d) => d.kcal), 1);
+  const niceMax = Math.max(500, Math.ceil(yMax / 500) * 500);
+  const yTicks = [0, niceMax / 4, niceMax / 2, (niceMax * 3) / 4, niceMax];
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
@@ -88,7 +96,8 @@ export function History() {
                 axisLine={false}
                 tickLine={false}
                 width={44}
-                allowDecimals={false}
+                domain={[0, niceMax]}
+                ticks={yTicks}
               />
               <Tooltip
                 cursor={{ fill: "#ffffff08" }}
